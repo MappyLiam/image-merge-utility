@@ -67,8 +67,8 @@ class Merger():
     ## set the parameter    
     def do_param_set(self):
         self.merge_number = random.randint(3,9)
-        self.v_overlap = float(random.randint(1, 5)/10) ##(0.1~0.9)
-        self.h_overlap = float(random.randint(1, 5)/10) ##(0.1~0.9)
+        self.v_overlap = float(random.randint(1, 5)/10) ##(0.1~0.5)
+        self.h_overlap = float(random.randint(1, 5)/10) ##(0.1~0.5)
         self.param_info = (self.v_overlap, self.h_overlap, self.merge_number)
 
         ## decide merge_set_num
@@ -86,12 +86,20 @@ class Merger():
         self.layer.append(self.merge_number - div1 - div2)
 
         ## save norm_size information
-        norm_list_file = open("/home/wonjae/Desktop/GP/project/Mergetest/image/norm_size.txt", 'r')
+        norm_list_file = open("/home/wonjae/Desktop/image-merge-utility/image/norm_size.txt", 'r')
         norm_read = norm_list_file.readline()
         while not(norm_read == ""):
             norm_line = norm_read.split()
             self.norm_size[int(norm_line[1])] = (float(norm_line[2]), float(norm_line[3]))
             norm_read = norm_list_file.readline()
+
+    def overlap_set(self):
+        '''
+        Change only v_overlap and h_overlap by randomizing
+        '''
+        self.v_overlap = float(random.randint(1,5)/10) ##(0.1 ~ 0.5)
+        self.h_overlap = float(random.randint(1,5)/10) ##(0.1 ~ 0.5)
+
 
     def param_reset(self):
         self.merge_set_num = [] ## number of merged image in list
@@ -112,21 +120,20 @@ class Merger():
         '''
         target_size = self.norm_size[fg_box.cl]
 ##        target_size *= randomrate(0.9~1.1)
-        width_resize_rate = target_size[0]/fg_box.width
-        height_resize_rate = target_size[1]/fg_box.height
+        resize_rate = math.sqrt(target_size[0]*target_size[1]/(fg_box.width*fg_box.height))
 
-        foreground = foreground.resize((int(640*width_resize_rate),int(480*height_resize_rate)))
-        fg_box.width *= width_resize_rate
-        fg_box.height *= height_resize_rate
-        fg_box.center_x *= width_resize_rate
-        fg_box.center_y *= height_resize_rate
+        foreground = foreground.resize((int(640*resize_rate),int(480*resize_rate)))
+        fg_box.width *= resize_rate
+        fg_box.height *= resize_rate
+        fg_box.center_x *= resize_rate
+        fg_box.center_y *= resize_rate
         
         return foreground, fg_box
 
     '''
     made by HEO
     '''
-    def find_point(self, index):
+    def find_point(self, index, box):
         ##finding line_num and line_index(e.g. layer[line_num] line_order-th bounding box
         ##line_index = 0 1 2...  (line_num = 0)
         ##             0 1 2...  (line_num = 1)
@@ -160,6 +167,10 @@ class Merger():
                 if self.merge_set_box == []:
                     self.h_overlap = 0
                     return Point(0,0)
+                if(self.merge_set_box[index_1line].last_point().x - (1-self.v_overlap) * self.merge_set_box[index_1line].width- box.width > 0):
+                    ran_num = random.randint(0, 1)
+                    return Point(self.merge_set_box[index_1line].last_point().x - self.v_overlap * self.merge_set_box[index_1line].width * ran_num - ((1-self.v_overlap) * self.merge_set_box[index_1line].width+box.width) * (1-ran_num), self.merge_set_box[index_1line].last_point().y - self.h_overlap * self.merge_set_box[index_1line].height)
+                
                 return Point(self.merge_set_box[index_1line].last_point().x - self.v_overlap * self.merge_set_box[index_1line].width,
                              self.merge_set_box[index_1line].last_point().y - self.h_overlap * self.merge_set_box[index_1line].height)
         else:
@@ -183,14 +194,14 @@ class Merger():
         '''
         
         ## NEED TO CHANGE HERE!!!!!!!!!!!!!!!!!!!!##########################
-        input_file_path = "/home/wonjae/Desktop/GP/project/Mergetest/image/"
-        output_file_path = "/home/wonjae/Desktop/GP/project/Mergetest/merge_test_out/"
+        input_file_path = "/home/wonjae/Desktop/image-merge-utility/image/"
+        output_file_path = "/home/wonjae/Desktop/image-merge-utility/merge_test_out/"
         ## NEED TO CHANGE HERE!!!!!!!!!!!!!!!!!!!!##########################
        
         for run in range(num):
             ## parameter setting
             self.do_param_set()
-            out_filename = "merged_0" + str(run) + "_num:" + str(self.merge_number) + "_V:" + str(self.v_overlap) + "_H:" + str(self.h_overlap)
+            out_filename = "merged_0" + str(run) + "_num:" + str(self.merge_number) ##+ "_V:" + str(self.v_overlap) + "_H:" + str(self.h_overlap)
             
             ## background image (black)
             background = Image.new("RGBA", (640, 480), (0, 0, 0))
@@ -215,7 +226,8 @@ class Merger():
                 num_done_image = len(self.merge_set_box)
                 
                 ## merge image file
-                target_point = self.find_point(num_done_image)
+                self.overlap_set()
+                target_point = self.find_point(num_done_image, fg_box)
                 int_target_point = Point(int(target_point.x*640), int(target_point.y*480))
                 self.do_merge(background, input_image, fg_box, int_target_point)
                 
@@ -256,7 +268,7 @@ class Merger():
 
 
 ### Need to change here!!!!!!!!!!!!!#########################################
-input_file_path = "/home/wonjae/Desktop/GP/project/Mergetest/image/"
+input_file_path = "/home/wonjae/Desktop/image-merge-utility/image/"
 ### Need to change here!!!!!!!!!!!!!#########################################
 
 
